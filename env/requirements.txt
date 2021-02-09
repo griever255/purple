@@ -1,4 +1,6 @@
-#### Requirements for the virtual environment
-#### No version numbers yet
+#### List of required packages for this virtual environment
+#### No version numbers added yet
+#### echo "package" >> requirements.txt
 
 pylint
+numpy
