@@ -1,0 +1,4 @@
+#### Requirements for the virtual environment
+#### No version numbers yet
+
+pylint
