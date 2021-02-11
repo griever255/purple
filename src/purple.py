@@ -1,4 +1,5 @@
 import numpy as np 
+import random as rand 
 
 class Card:
     def __init__(self, rank, suit):
@@ -29,4 +30,6 @@ class Deck:
             c.show()
 
 deck = Deck()
+rand.shuffle(deck.cards)
 deck.show()
+
