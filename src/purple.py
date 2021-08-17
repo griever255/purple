@@ -1,16 +1,42 @@
 import numpy
 import random
+import pylab
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+#set line width
+pylab.rcParams['lines.linewidth'] = 4
+#set font size for titles 
+pylab.rcParams['axes.titlesize'] = 20
+#set font size for labels on axes
+pylab.rcParams['axes.labelsize'] = 16
+#set size of numbers on x-axis
+pylab.rcParams['xtick.labelsize'] = 12
+#set size of numbers on y-axis
+pylab.rcParams['ytick.labelsize'] = 12
+#set size of ticks on x-axis
+pylab.rcParams['xtick.major.size'] = 7
+#set size of ticks on y-axis
+pylab.rcParams['ytick.major.size'] = 7
+#set size of markers
+pylab.rcParams['lines.markersize'] = 10
+#set number of examples shown in legends
+pylab.rcParams['legend.numpoints'] = 1
+
+correction = {
+    1: "Ace",
+    11: "Jack",
+    12: "Queen",
+    13: "King",
+}
+
+rev_corr = {
+    "Ace": 1,
+    "Jack": 11,
+    "Queen": 12,
+    "King": 13
+}
+
+red = ["Hearts", "Diamonds"]
+black = ["Spades", "Clubs"]
 
 class Card(object):
     def __init__(self, rank, suit):
@@ -32,32 +58,32 @@ class Deck(object):
     def get_cards(self):
         return self.cards
     
+    def set_cards(self, cards):
+        self.cards = cards
+    
     def initialize(self):
         for r in range(1,14):
             for s in ["Spades", "Clubs", "Hearts", "Diamonds"]:
-                correction = {
-                    1: "Ace",
-                    11: "Jack",
-                    12: "Queen",
-                    13: "King",
-                }
                 r = correction.get(r, r)
                 self.cards.append(Card(r,s))
 
-    def add_card(self, card):
-        if card not in self.cards:
-            self.cards.append(card)
-        else:
-            raise ValueError("Card is already in deck")
+    def add_cards(self, cards):
+        for card in cards:
+            if card not in self.cards:
+                self.cards.append(card)
+            else:
+                raise ValueError("Card is already in deck")
 
-    def remove_card(self, card):
-        if card in self.cards:
-            self.cards.remove(card)
-        else:
-            raise ValueError("Card not in the deck")
+    def remove_cards(self, cards):
+        for card in cards:
+            if card in self.cards:
+                self.cards.remove(card)
+            else:
+                raise ValueError("Card not in the deck")
     
     def __str__(self):
         string = ""
+        suit = None
         for i, c in enumerate(self.get_cards()):
             if i == len(self.get_cards())-1:
                 string += c.__str__()
@@ -76,14 +102,14 @@ def draw_cards(deck, in_play, n):
     in_play (Deck)
     n (int) is the number of cards to draw
 
-    Returns: The resulting deck and in_play cards
+    Returns: The resulting drawn cards, deck, and in_play cards
     """
     drawn_cards = []
     for draw in range(n):
         drawn_cards.append(random.choice(deck.get_cards()))
-        deck.remove_card(drawn_cards[draw])
-        in_play.add_card(drawn_cards[draw])
-    return deck, in_play
+        deck.remove_cards([drawn_cards[draw]])
+    in_play.add_cards(drawn_cards)
+    return drawn_cards, deck, in_play
 
 def action_to_cards(action):
     """
@@ -95,6 +121,30 @@ def action_to_cards(action):
     }
     return options[action]
 
+def check_draw(in_play, drawn_cards, action):
+    """
+    Compares the drawn_cards (list of cards) to action and returns (bool) True or False
+    """
+    options = {
+        "purple": [["R","B"], ["B","R"]]
+    }
+    suit_events = ["purple"]
+    suits = []
+    for card in drawn_cards:
+        suit = card.get_suit()
+        if suit in red:
+            suits.append("R")
+        elif suit in black: 
+            suits.append("B")
+        else:
+            raise ValueError("Dragons...")
+    if action in suit_events:
+        if suits in options[action]:
+            return True
+        else: 
+            return False
+
+
 if __name__ == "__main__":
     # Initialize the game with a shuffled deck of 52 cards
     deck = Deck()
@@ -103,12 +153,29 @@ if __name__ == "__main__":
     discard = Deck()
     random.shuffle(deck.cards)
 
-    action = input("What would you like?: ")
-    n = action_to_cards(action)
-    deck, in_play = draw_cards(deck, in_play, n)
-    print(in_play)
-    print(deck)
-    
-
-
+    numTrials = 1000000
+    cards_reached = []
+    for i in range(numTrials):
+        action = "purple" # input("What would you like?: ")
+        n = action_to_cards(action)
+        if len(deck.get_cards()) < n:
+            random.shuffle(discard.cards)
+            deck.set_cards(discard.get_cards())
+            discard.set_cards([])
+        drawn_cards, deck, in_play = draw_cards(deck, in_play, n)
+        result = check_draw(in_play, drawn_cards, action)
+        print(in_play)
+        if result:
+            print(f"That's a good {action}!")
+        else:
+            print(f"Not a good {action}, drink {len(in_play.get_cards())}!")
+            cards_reached.append(len(in_play.get_cards()))
+            discard.add_cards(in_play.get_cards())
+            in_play.set_cards([])
+    pylab.hist(cards_reached, 100)
+    pylab.axvline(x=3, color="r")
+    pylab.title("Number of Drinks per Trial")
+    pylab.xlabel("Number of Drinks")
+    pylab.ylabel("Number of Trials of [x] Drinks")
+    pylab.show()
 
