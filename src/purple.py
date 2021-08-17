@@ -1,17 +1,18 @@
 import numpy
 import random
 import pylab
+import scipy.stats
 
 #set line width
 pylab.rcParams['lines.linewidth'] = 4
 #set font size for titles 
-pylab.rcParams['axes.titlesize'] = 20
+pylab.rcParams['axes.titlesize'] = 10
 #set font size for labels on axes
-pylab.rcParams['axes.labelsize'] = 16
+pylab.rcParams['axes.labelsize'] = 12
 #set size of numbers on x-axis
-pylab.rcParams['xtick.labelsize'] = 12
+pylab.rcParams['xtick.labelsize'] = 10
 #set size of numbers on y-axis
-pylab.rcParams['ytick.labelsize'] = 12
+pylab.rcParams['ytick.labelsize'] = 10
 #set size of ticks on x-axis
 pylab.rcParams['xtick.major.size'] = 7
 #set size of ticks on y-axis
@@ -117,7 +118,14 @@ def action_to_cards(action):
     """
     action = action.lower()
     options = {
-        "purple": 2
+        "red orgy": 4,
+        "black orgy": 4,
+        "rainbow": 3,
+        "purple": 2,
+        "red": 1,
+        "black": 1,
+        "higher": 1,
+        "lower": 1
     }
     return options[action]
 
@@ -126,23 +134,52 @@ def check_draw(in_play, drawn_cards, action):
     Compares the drawn_cards (list of cards) to action and returns (bool) True or False
     """
     options = {
-        "purple": [["R","B"], ["B","R"]]
+        "red": [["R"]],
+        "black": [["B"]],
+        "purple": [["R","B"], ["B","R"]],
+        "rainbow": [["R", "B", "R"], ["B","R","B"]],
+        "red orgy": [["R", "R", "R", "B"],
+                    ["R", "R", "B", "R"],
+                    ["R", "B", "R", "R"],
+                    ["B", "R", "R", "R"]],
+        "black orgy": [["B", "B", "B", "R"],
+                       ["B", "B", "R", "B"],
+                       ["B", "R", "B", "B"],
+                       ["R", "B", "B", "B"]]
     }
-    suit_events = ["purple"]
-    suits = []
-    for card in drawn_cards:
-        suit = card.get_suit()
-        if suit in red:
-            suits.append("R")
-        elif suit in black: 
-            suits.append("B")
-        else:
-            raise ValueError("Dragons...")
+    suit_events = ["red", "black", "purple", "rainbow", "red orgy", "black orgy"]
+    rank_events = ["higher", "lower", "push"]
     if action in suit_events:
+        suits = []
+        for card in drawn_cards:
+            suit = card.get_suit()
+            if suit in red:
+                suits.append("R")
+            elif suit in black: 
+                suits.append("B")
+            else:
+                raise ValueError("Dragons...")
         if suits in options[action]:
             return True
         else: 
             return False
+    elif action in rank_events:
+        for card in drawn_cards:
+            rank = card.get_rank()
+            rank = rev_corr.get(rank, rank)
+            prev_rank = in_play.get_cards()[-2].get_rank()
+            prev_rank = rev_corr.get(prev_rank, prev_rank)
+            draw_is_higher = rank > prev_rank
+            if action == "higher":
+                return rank > prev_rank
+            elif action == "lower":
+                return rank < prev_rank
+            elif action == "push":
+                return rank == prev_rank
+
+        
+            
+
 
 
 if __name__ == "__main__":
@@ -153,29 +190,63 @@ if __name__ == "__main__":
     discard = Deck()
     random.shuffle(deck.cards)
 
-    numTrials = 1000000
+    numTrials = 100000
+    numMore3 = 0
+    numGood = 0
+    numBad = 0
     cards_reached = []
     for i in range(numTrials):
-        action = "purple" # input("What would you like?: ")
-        n = action_to_cards(action)
-        if len(deck.get_cards()) < n:
-            random.shuffle(discard.cards)
-            deck.set_cards(discard.get_cards())
-            discard.set_cards([])
-        drawn_cards, deck, in_play = draw_cards(deck, in_play, n)
-        result = check_draw(in_play, drawn_cards, action)
-        print(in_play)
-        if result:
-            print(f"That's a good {action}!")
-        else:
-            print(f"Not a good {action}, drink {len(in_play.get_cards())}!")
-            cards_reached.append(len(in_play.get_cards()))
-            discard.add_cards(in_play.get_cards())
-            in_play.set_cards([])
-    pylab.hist(cards_reached, 100)
-    pylab.axvline(x=3, color="r")
-    pylab.title("Number of Drinks per Trial")
-    pylab.xlabel("Number of Drinks")
-    pylab.ylabel("Number of Trials of [x] Drinks")
-    pylab.show()
+        first = True
+        while True:
+            if first:
+                action = "red"
+            else:
+                play_rank = in_play.get_cards()[-1].get_rank()
+                play_rank = rev_corr.get(play_rank, play_rank)
+                if int(play_rank) < 7:
+                    action = "higher"
+                elif int(play_rank) > 7:
+                    action = "lower"
+                else:
+                    action = "purple"
+            first = False
+            n = action_to_cards(action)
+            if len(deck.get_cards()) < n:
+                random.shuffle(discard.cards)
+                new_deck = deck.get_cards()+discard.get_cards()
+                deck.set_cards(new_deck)
+                discard.set_cards([])
+            total_cards = int(len(discard.get_cards()))+int(len(in_play.get_cards()))+int(len(deck.get_cards()))
+            drawn_cards, deck, in_play = draw_cards(deck, in_play, n)
+            result = check_draw(in_play, drawn_cards, action)
+            #print(in_play)
+            if result:
+                #print(f"That's a good {action}!")
+                numGood += 1
+            else:
+                #print(f"Not a good {action}, drink {len(in_play.get_cards())}!")
+                cards_reached.append(len(in_play.get_cards()))
+                discard.add_cards(in_play.get_cards())
+                if len(in_play.get_cards()) >= 3:
+                    numMore3 += len(in_play.get_cards())//3
+                in_play.set_cards([])
+                numTrials += 1
+                numBad += 1
+                break
+    right_perc = round(numGood/(numGood+numBad)*100,2)
+    pass_perc = round(numMore3/numTrials*100,2)
+    pylab.hist(cards_reached, max(cards_reached), density=True, label="Monte Carlo")
+    pylab.title(f'Started with Color\n \
+        Cards Guessed Right: {right_perc}%\n\
+        We can Say "Pass": {pass_perc}%')
+    pylab.xlabel("Sequential # of Cards (Correct Guesses)")
+    pylab.ylabel("# of Games")
+    hist = numpy.histogram(cards_reached, max(cards_reached))
+    hist_dist = scipy.stats.rv_histogram(hist)
+    x = numpy.linspace(0,max(cards_reached), 100)
+    pylab.plot(x, hist_dist.pdf(x), label="PDF", color="red")
+    pylab.plot(x, hist_dist.cdf(x), label="CDF", color="green")
+    pylab.legend(loc="best")
+    pylab.savefig("StartwColor.png")
+
 
